@@ -13,7 +13,30 @@ const mean1 = a => Math.round(sum(a) / a.length * 10) / 10;
 /* Task-IDs vergeben */
 const ALL_TASKS = {};
 for (const id of ROUTE) STATIONS[id].tasks.forEach((t, i) => { t.id = id + "-" + i; t.st = id; ALL_TASKS[t.id] = t; });
-BOSS_TASKS.forEach((t, i) => { t.id = "boss-" + i; t.st = "boss"; ALL_TASKS[t.id] = t; });
+const BOSS_ZONE = [null, "savanne", "boreal", "basis", "basis", "mittelmeer", "savanne", "regenwald", "basis", null, "subpolar", "regenwald", "mittelmeer", "savanne"];
+BOSS_TASKS.forEach((t, i) => { t.id = "boss-" + i; t.st = "boss"; t.z = BOSS_ZONE[i] || null; ALL_TASKS[t.id] = t; });
+const zoneOf = t => t.st === "boss" ? t.z : t.st;
+
+/* Kompetenzen für die Auswertung */
+const SKILLS = {
+  diagramm: { name: "Klimadiagramme lesen und zuordnen", tip: "Nimm dir ein Klimadiagramm und geh die 4 Schritte vom Arbeitsblatt durch. Frag dich immer zuerst: Wie warm ist der wärmste Monat, wie kalt der kälteste? Gibt es eine Trockenzeit (Säulen unter der Kurve)? Die Lernkarten helfen dir beim Zuordnen." },
+  rechnen: { name: "Jahresmittel und Jahressumme berechnen", tip: "Jahresdurchschnitt: alle 12 Temperaturen addieren und durch 12 teilen. Jahressumme: alle 12 Niederschlagswerte addieren, nicht teilen! Rechne in Gruppen (Januar bis Juni, Juli bis Dezember) und kontrolliere einmal mit dem Taschenrechner." },
+  zeichnen: { name: "Klimadiagramme zeichnen", tip: "Übe die Diagramm-Werkstatt in der Station Regenwald noch einmal. Merke: 10 °C entsprechen 20 mm, ab 100 mm ist ein Kästchen 100 mm. Erst Einheiten beschriften, dann Säulen, dann die Temperaturkurve." },
+  karte: { name: "Zonen auf der Weltkarte finden", tip: "Nimm die stumme Karte aus dem Unterricht und zeichne die Zonen farbig ein. Orientiere dich an den Linien: Regenwald am Äquator, Wüsten an den Wendekreisen, Tundra am nördlichen Polarkreis." },
+  erklaeren: { name: "In eigenen Worten erklären", tip: "Schreib Erklärungen als Kette: Ursache, dann Folge, verbunden mit „weil“ und „deshalb“. Beispiel: Die Sonne steht hoch, deshalb ist es warm, deshalb verdunstet viel Wasser, deshalb regnet es täglich. Vergleiche danach mit der Musterlösung." },
+  wissen: { name: "Fachwissen und Fachbegriffe", tip: "Lies die Lernkarten der schwächeren Zonen laut vor und erkläre danach jemandem drei Fachbegriffe ohne hinzuschauen (zum Beispiel Permafrost, Oase, Brandrodung)." }
+};
+function skillOf(t) { if (t.t === "draw") return "zeichnen"; if (t.t === "free") return "erklaeren"; if (t.t === "map") return "karte"; if (t.t === "num" && t.tab) return "rechnen"; if (t.d || t.t === "arid") return "diagramm"; return "wissen"; }
+const ZONE_TIP = {
+  basis: "Wiederhole, warum die Zonen wie Gürtel um die Erde liegen (Einfallswinkel der Sonne), und die Regel für arid und humid.",
+  polar: "Merke dir: kein Monat über 0 °C, kaum Niederschlag, Polartag und Polarnacht nördlich des Polarkreises.",
+  subpolar: "Deine Vortragszone! Erkläre Permafrost, Vegetationszeit und warum keine Bäume wachsen, so als würdest du den Vortrag nochmal halten.",
+  boreal: "Merke dir: eiskalte Winter, aber mehrere Monate über 10 °C. Nadelbäume sind an die kurze Vegetationszeit angepasst. Jakutsk ist so kalt, weil es weit weg vom Meer liegt.",
+  mittelmeer: "Merke dir: Regen im Winter, Trockenzeit im Sommer. Hartlaubgewächse schützen sich so vor Verdunstung.",
+  wueste: "Merke dir: 0 bis 2 humide Monate, große Tag-Nacht-Unterschiede, Wüsten liegen an den Wendekreisen, Oasen und der Nil als Fremdlingsfluss.",
+  savanne: "Merke dir: Regenzeit und Trockenzeit. Vom Äquator weg erst Feucht-, dann Trocken-, dann Dornsavanne. Desertifikation durch Überweidung.",
+  regenwald: "Das ist euer aktuelles Thema. Wiederhole Tageszeitenklima, Stockwerkbau, Nährstoffkreislauf und Brandrodung, am besten mit den Aufgaben im Buch S. 82 und 84."
+};
 
 /* ============ SPEICHER ============ */
 const LS = "expedition-aequator-v1";
@@ -140,6 +163,7 @@ function home() {
     <nav class="topnav">
       <button class="btn ghost" data-nav="atlas">Lernkarten</button>
       <button class="btn ghost" data-nav="pass">Reisepass</button>
+      <button class="btn ghost" data-nav="report">Auswertung</button>
       <button class="btn ghost" data-nav="diary">Forschertagebuch${diaryN ? ` <span class="badge">${diaryN}</span>` : ""}</button>
     </nav>
   </header>
@@ -154,7 +178,7 @@ function home() {
   </section>
   <footer class="foot"><button class="linkbtn" data-nav="parents">Für Eltern</button></footer>`;
   $$("[data-go]").forEach(el => { const go = () => { const id = el.dataset.go; if (id === "boss") { if (bossOpen()) bossIntro(); else toast("Der Wetterwirbel versteckt sich noch. Sammle zuerst alle 8 Stempel."); } else { const i = ROUTE.indexOf(id); if (unlocked(i)) stationIntro(id); else toast("Diese Station ist noch gesperrt. Schließ zuerst die vorherige ab."); } }; el.addEventListener("click", go); el.addEventListener("keydown", e => { if (e.key === "Enter") go(); }); });
-  $$("[data-nav]").forEach(b => b.addEventListener("click", () => ({atlas, pass: passport, diary, parents})[b.dataset.nav]()));
+  $$("[data-nav]").forEach(b => b.addEventListener("click", () => ({atlas, pass: passport, diary, parents, report})[b.dataset.nav]()));
   const f = $("#nameForm"); if (f) f.addEventListener("submit", e => { e.preventDefault(); S.name = $("#nameIn").value.trim(); save(); home(); });
   window.scrollTo(0, 0);
 }
@@ -266,6 +290,8 @@ function finishStation() {
   window.scrollTo(0, 0);
 }
 function record(t, res) {
+  const sk = skillOf(t), k = (S.skills = S.skills || {})[sk] || (S.skills[sk] = { a: 0, c: 0 }); k.a++; if (res.ok) k.c++;
+  if (R) (R.res = R.res || []).push({ id: t.id, ok: res.ok });
   const s = stat(t.st); s.answered++; if (res.ok) s.correct++; if (res.ok && res.attempt === 1 && res.hints === 0) s.first++; s.hints += res.hints;
   if (res.ok) { S.mastered[t.id] = (S.mastered[t.id] || 0) + 1; }
   else if (!S.diary.includes(t.id)) S.diary.push(t.id);
@@ -328,16 +354,74 @@ function nextBoss() {
   }});
 }
 function finishBoss() {
-  const won = R.hp <= 0, txt = `${R.right} von ${R.n} richtig`;
+  const won = R.hp <= 0, txt = `${R.right} von ${R.n} richtig`, res = R.res || [];
   if (won) { S.boss.wins++; if (!S.boss.best || R.right / R.n > parseBest(S.boss.best)) S.boss.best = txt; }
-  S.log.push({ at: Date.now(), what: "Wetterwirbel", correct: R.right, n: R.n, stars: won ? 1 : 0, boss: true, won }); save();
+  S.log.push({ at: Date.now(), what: "Wetterwirbel", correct: R.right, n: R.n, stars: won ? 1 : 0, boss: true, won });
+  S.lastBoss = { at: Date.now(), won, right: R.right, n: R.n, res }; save();
   R = null;
   app.innerHTML = `<section class="result card ${won ? "win" : ""}">
-    ${won ? `<div class="bossbig defeated"><svg viewBox="0 0 120 120" width="140" height="140">${swirl(60, 60, 50)}</svg></div><h2>Der Wetterwirbel ist besiegt!</h2>
-    <p class="lead">${txt}. Alle Klimadiagramme sind wieder an ihrem Platz. Du bist bereit für den Test.</p>`
-    : `<h2>Der Wetterwirbel ist entkommen</h2><p class="lead">${txt}. Schau ins Forschertagebuch: Dort stehen die Aufgaben, die noch nicht saßen. Danach hast du ihn sicher.</p>`}
-    <div class="row center"><button class="btn primary" id="again">${won ? "Nochmal kämpfen" : "Revanche"}</button><button class="btn ghost" id="d">Forschertagebuch</button><button class="btn ghost" id="map">Zur Karte</button></div></section>`;
-  $("#again").onclick = bossIntro; $("#d").onclick = diary; $("#map").onclick = home; window.scrollTo(0, 0);
+    ${won ? `<div class="bossbig defeated"><svg viewBox="0 0 120 120" width="140" height="140">${swirl(60, 60, 50)}</svg></div><h2>Der Wetterwirbel ist besiegt!</h2>`
+    : `<h2>Der Wetterwirbel ist entkommen</h2>`}
+    <p class="lead">${txt}. Unten findest du deine Auswertung: was schon sitzt, was du noch üben solltest und wie.</p></section>
+    ${reportHTML(res, true)}
+    <div class="row center"><button class="btn primary" id="again">${won ? "Nochmal kämpfen" : "Revanche"}</button><button class="btn ghost" id="d">Forschertagebuch</button><button class="btn ghost" id="map">Zur Karte</button></div>`;
+  $("#again").onclick = bossIntro; $("#d").onclick = diary; $("#map").onclick = home; bindReport(); window.scrollTo(0, 0);
+}
+/* ---------- Auswertung ---------- */
+const GRADES = [[87, "1", "sehr gut"], [73, "2", "gut"], [59, "3", "befriedigend"], [45, "4", "ausreichend"], [18, "5", "mangelhaft"], [0, "6", "ungenügend"]];
+const gradeOf = p => GRADES.find(g => p >= g[0]);
+function groupRes(res) {
+  const sk = {}, zo = {};
+  for (const r of res) { const t = ALL_TASKS[r.id]; if (!t) continue;
+    const a = sk[skillOf(t)] = sk[skillOf(t)] || { a: 0, c: 0 }; a.a++; if (r.ok) a.c++;
+    const z = zoneOf(t); if (z) { const b = zo[z] = zo[z] || { a: 0, c: 0 }; b.a++; if (r.ok) b.c++; } }
+  return { sk, zo };
+}
+function reportHTML(res, fromBoss) {
+  // Probetest-Ergebnis plus alles, was bisher gespielt wurde
+  const g = groupRes(res);
+  const allSk = S.skills || {}, allZo = {};
+  ROUTE.forEach(id => { const s = S.stats[id]; if (s && s.answered) allZo[id] = { a: s.answered, c: s.correct }; });
+  for (const [z, v] of Object.entries(g.zo)) { const o = allZo[z] || { a: 0, c: 0 }; allZo[z] = { a: o.a + v.a, c: o.c + v.c }; }
+  const pct = v => Math.round(v.c / v.a * 100);
+  const skRows = Object.keys(SKILLS).filter(k => (allSk[k] && allSk[k].a) || g.sk[k]).map(k => ({ k, v: g.sk[k] && g.sk[k].a >= 2 ? g.sk[k] : allSk[k] || g.sk[k] }));
+  const zoRows = ROUTE.filter(z => allZo[z]).map(z => ({ z, v: allZo[z] }));
+  const strong = [...skRows.filter(r => r.v.a >= 2 && pct(r.v) >= 85).map(r => SKILLS[r.k].name), ...zoRows.filter(r => r.v.a >= 3 && pct(r.v) >= 85).map(r => STATIONS[r.z].name + " (" + STATIONS[r.z].zone + ")")];
+  const weakSk = skRows.filter(r => r.v.a >= 2 && pct(r.v) < 70).sort((a, b) => pct(a.v) - pct(b.v));
+  const weakZo = zoRows.filter(r => r.v.a >= 2 && pct(r.v) < 70).sort((a, b) => pct(a.v) - pct(b.v));
+  let head = "";
+  if (fromBoss && res.length) {
+    const p = Math.round(res.filter(r => r.ok).length / res.length * 100), gr = gradeOf(p);
+    head = `<div class="grade"><div class="gbig"><span>Note</span><b>${gr[1]}</b><em>${gr[2]}</em></div>
+      <div><h3>Dein Probetest</h3><p>${res.filter(r => r.ok).length} von ${res.length} Aufgaben richtig, das sind <b>${p} %</b>.</p>
+      <p class="small">Die Note ist eine Schätzung nach dem üblichen Notenschlüssel (ab 87 % eine 1, ab 73 % eine 2 und so weiter). Im echten Test kann es anders aussehen, zum Beispiel wenn deine Lehrkraft mehr Wert auf Erklärungen legt.</p></div></div>`;
+  }
+  const bar = v => { const p = pct(v); return `<span class="pbar"><i style="width:${p}%;background:${p >= 85 ? "var(--ok)" : p >= 70 ? "var(--gold)" : "var(--bad)"}"></i></span><span class="pv">${p} % · ${v.c}/${v.a}</span>`; };
+  const plan = [];
+  if (weakZo[0]) plan.push(unlocked(ROUTE.indexOf(weakZo[0].z)) ? `Spiele die Station <b>${esc(STATIONS[weakZo[0].z].name)}</b> noch einmal. Lies vorher die Lernkarte.` : `Lies die Lernkarte <b>${esc(STATIONS[weakZo[0].z].name)}</b> (oben auf der Startseite unter „Lernkarten“) und spiele die Station, sobald du dort ankommst.`);
+  if (weakSk[0]) plan.push(`Übe gezielt: <b>${esc(SKILLS[weakSk[0].k].name)}</b>. ${esc(SKILLS[weakSk[0].k].tip.split(". ")[0].replace(/\.$/, ""))}.`);
+  if (S.diary.length) plan.push(`Wiederhole die <b>${S.diary.length} Aufgaben</b> in deinem Forschertagebuch, bis es leer ist.`);
+  if (!plan.length) plan.push("Alles läuft richtig gut. Kämpf noch einmal gegen den Wetterwirbel, diesmal ganz ohne Joker.");
+  plan.push("Am Tag vor dem Test: Lernkarten durchlesen und ein Klimadiagramm in 4 Schritten auswerten, schriftlich wie in der Arbeit.");
+  return `<section class="card report">${head}
+    <div class="rgrid">
+      <div><h3>Das kannst du schon</h3>${strong.length ? `<ul class="good">${strong.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="small">Noch zu wenig gespielt, um sicher zu sagen, was schon richtig gut sitzt. Weiter so!</p>`}</div>
+      <div><h3>Hier lohnt sich Üben</h3>${weakSk.length || weakZo.length ? `<ul class="weak">${weakSk.map(r => `<li><b>${esc(SKILLS[r.k].name)}</b> (${pct(r.v)} %)<p>${esc(SKILLS[r.k].tip)}</p></li>`).join("")}${weakZo.map(r => `<li><b>${esc(STATIONS[r.z].name)}</b> (${pct(r.v)} %)<p>${esc(ZONE_TIP[r.z])}</p></li>`).join("")}</ul>` : `<p>Keine echten Schwachstellen. Alles liegt bei 70 % oder mehr.</p>`}</div>
+    </div>
+    <h3>Dein Trainingsplan</h3><ol class="plan">${plan.map(x => `<li>${x}</li>`).join("")}</ol>
+    <details class="detail"><summary>Alle Themen im Detail</summary>
+      <h4>Fähigkeiten</h4><div class="ptable">${skRows.map(r => `<div class="prow"><span class="pz" style="--z:var(--pri)">${esc(SKILLS[r.k].name)}</span>${bar(r.v)}</div>`).join("")}</div>
+      <h4>Zonen</h4><div class="ptable">${zoRows.map(r => `<div class="prow"><span class="pz" style="--z:${STATIONS[r.z].color}">${esc(STATIONS[r.z].name)}</span>${bar(r.v)}</div>`).join("")}</div>
+    </details></section>`;
+}
+function bindReport() {}
+function report() {
+  const lb = S.lastBoss;
+  app.innerHTML = `<div class="crumbs"><button class="btn ghost" id="back">← Karte</button></div>
+    <h2 class="pagetitle">Meine Auswertung</h2>
+    <p class="lead">${lb ? `Letzter Probetest gegen den Wetterwirbel: ${new Date(lb.at).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}, ${lb.right} von ${lb.n} richtig.` : "Noch kein Probetest gespielt. Die Auswertung zeigt bisher nur die Stationen. Die Notenschätzung gibt es nach dem Kampf gegen den Wetterwirbel."}</p>
+    ${Object.keys(S.stats).length ? reportHTML(lb ? lb.res : [], !!lb) : `<p class="card">Spiel zuerst ein paar Stationen, dann steht hier, was du schon kannst und was du noch üben solltest.</p>`}`;
+  $("#back").onclick = home; window.scrollTo(0, 0);
 }
 const parseBest = s => { const m = /(\d+) von (\d+)/.exec(s || ""); return m ? m[1] / m[2] : 0; };
 
